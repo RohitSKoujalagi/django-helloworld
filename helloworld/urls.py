@@ -23,4 +23,5 @@ urlpatterns = [
 
     # Hello, world!
     path('', views.index, name='index')
+    path('', include('django_prometheus.urls')), # This exposes the /metrics route
 ]
