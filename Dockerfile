@@ -1,17 +1,30 @@
-# Use an official Python runtime as a parent image
-FROM python:3.11
+# 1. Use the slim version of the official image for a smaller, more secure footprint
+FROM python:3.11-slim
 
-# Set the working directory to /app
+# 2. Set environment variables for optimized Python execution in containers
+# Prevents Python from writing .pyc files to disk
+ENV PYTHONDONTWRITEBYTECODE=1 
+# Ensures Python output is logged straight to the terminal without buffering
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+# 3. Install necessary OS packages and immediately clean up the apt cache
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install necessary packages and any needed packages specified in requirements.txt
-RUN apt-get update && apt-get install -y python3-dev python3-pip sqlite3 && pip install -r requirements.txt
+# 4. Copy ONLY requirements first to leverage Docker layer caching
+COPY requirements.txt /app/
 
-# Make port 8000 available to the world outside this container
+# 5. Install Python dependencies without caching the installation files
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 6. Copy the rest of the application code (fixed syntax on this line)
+COPY . /app/
+
 EXPOSE 8000
 
-# Run migrations and then start the server
-CMD ["sh", "-c", "python3 manage.py migrate && python3 manage.py runserver 0.0.0.0:8000"]
+# 7. Start the application using a production WSGI server (Gunicorn)
+# Updated to point exactly to your helloworld/wsgi.py file
+CMD ["sh", "-c", "python manage.py migrate && gunicorn helloworld.wsgi:application --bind 0.0.0.0:8000"]
